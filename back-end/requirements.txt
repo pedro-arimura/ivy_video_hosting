@@ -1,0 +1,6 @@
+fastapi[standard]
+uvicorn[standard]
+psycopg2-binary
+python-multipart
+PyJWT
+boto3

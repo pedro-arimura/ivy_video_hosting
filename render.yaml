@@ -1,0 +1,36 @@
+# Render Blueprint for the IvyVideo API (free tier friendly).
+#
+# Deploy by connecting this repo in the Render dashboard and choosing
+# "Blueprint" (render.yaml), or push to a branch that has blueprints enabled.
+#
+# Required env vars to set in the Render dashboard after deploy:
+#   DATABASE_URL          - your Neon/PostgreSQL connection string
+#   S3_BUCKET             - your R2/B2 bucket name (leave empty to use local disk)
+#   S3_ENDPOINT_URL       - e.g. https://<accountid>.r2.cloudflarestorage.com
+#   S3_ACCESS_KEY_ID      - your storage access key
+#   S3_SECRET_ACCESS_KEY  - your storage secret key
+#   CORS_ORIGINS          - comma-separated list of frontend origins
+services:
+  - type: web
+    name: ivyvideo-api
+    runtime: python
+    rootDir: back-end
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

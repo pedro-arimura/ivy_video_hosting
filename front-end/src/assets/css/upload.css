@@ -1,0 +1,40 @@
+.upload {
+    max-width: 560px;
+    margin: 0 auto;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 28px;
+}
+
+.upload h1 {
+    font-size: 1.4rem;
+    margin-bottom: 18px;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field > span {
+    font-size: 0.85rem;
+    color: #444;
+}
+
+.upload-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.upload-progress {
+    flex: 1;
+}

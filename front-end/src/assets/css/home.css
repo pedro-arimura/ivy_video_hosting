@@ -1,0 +1,21 @@
+.home-hero {
+    margin-bottom: 28px;
+}
+
+.home-hero h1 {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+}
+
+.home-hero p {
+    color: var(--light-text-color);
+}
+
+.home-empty {
+    text-align: center;
+    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
