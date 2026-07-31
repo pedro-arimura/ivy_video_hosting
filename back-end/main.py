@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from database import init_db
@@ -26,6 +28,9 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(videos.router, prefix="/videos", tags=["videos"])
+
+embed_dir = Path(__file__).resolve().parent / "static" / "embed"
+app.mount("/embed", StaticFiles(directory=embed_dir), name="embed")
 
 
 @app.get("/")

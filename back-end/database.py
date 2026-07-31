@@ -31,6 +31,18 @@ CREATE TABLE IF NOT EXISTS videos (
     storage_key TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS video_events (
+    id TEXT PRIMARY KEY,
+    video_id TEXT NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    position_seconds REAL,
+    seconds REAL,
+    visitor_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_events_video ON video_events (video_id);
 """
 
 

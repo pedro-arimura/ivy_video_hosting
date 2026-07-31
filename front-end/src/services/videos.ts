@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { Video } from '../types'
+import type { Video, VideoStats } from '../types'
 
 export function listVideos(): Promise<{ videos: Video[] }> {
   return api<{ videos: Video[] }>('/videos')
@@ -7,6 +7,10 @@ export function listVideos(): Promise<{ videos: Video[] }> {
 
 export function getVideo(id: string): Promise<Video> {
   return api<Video>(`/videos/${id}`)
+}
+
+export function getVideoStats(id: string): Promise<VideoStats> {
+  return api<VideoStats>(`/videos/${id}/stats`)
 }
 
 export function uploadVideo(

@@ -28,3 +28,54 @@
     white-space: pre-wrap;
     color: #333;
 }
+
+.watch-panel {
+    margin-top: 20px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: white;
+}
+
+.watch-panel h2 {
+    font-size: 1rem;
+    margin-bottom: 6px;
+}
+
+.embed-code {
+    margin-top: 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #333;
+    background: var(--bg-color);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 12px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-color);
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--brand-color);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--light-text-color);
+}
+

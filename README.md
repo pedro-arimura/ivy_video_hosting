@@ -53,11 +53,39 @@ library → watch it in a streaming player**.
 | POST   | `/auth/signin`        | Sign in, returns JWT                 |
 | GET    | `/auth/me`            | Current user (Bearer token)          |
 | POST   | `/videos/upload`      | Upload a video (multipart, auth)     |
-| GET    | `/videos`             | List videos (public)                 |
+| GET    | `/videos`             | List videos (public, with view counts) |
 | GET    | `/videos/{id}`        | Video metadata                       |
 | GET    | `/videos/{id}/stream` | Video bytes with Range support       |
+| POST   | `/videos/{id}/events` | Record a playback event (embed player) |
+| GET    | `/videos/{id}/stats`  | Analytics for the owner (auth)       |
 | DELETE | `/videos/{id}`        | Delete own video (auth)              |
+| GET    | `/embed/player.js`    | Embeddable player script             |
 | GET    | `/health`             | Health check                         |
+
+## Embed the player on any page
+
+Every video has its own embed code that can be pasted on **any** HTML page. The
+UUID lives in the HTML attribute — there is a single shared `player.js` file:
+
+```html
+<div data-ivy-video="VIDEO_UUID"></div>
+<script src="https://YOUR_API_URL/embed/player.js" async></script>
+```
+
+The script renders an HTML5 player and meters analytics:
+
+| Metric            | How it's computed                                  |
+| ----------------- | -------------------------------------------------- |
+| Views             | `view` event (first play, per visitor/page load)   |
+| Click rate        | `play` clicks / views                              |
+| Watch time        | `watch` heartbeats reported every ~10s of playback |
+| Unmute rate       | `unmute` / views                                   |
+| Completion rate   | `ended` / views                                    |
+| Play clicks       | total `play` events                                |
+
+Events are sent to `POST /videos/{id}/events` via `navigator.sendBeacon` (so
+they survive page unloads) with a visitor id stored in `localStorage`. The
+owner sees the analytics panel and the embed code on the video's watch page.
 
 ## Run locally
 

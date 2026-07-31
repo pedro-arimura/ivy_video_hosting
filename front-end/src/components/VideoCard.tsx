@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import type { Video } from '../types'
-import { formatBytes } from '../utils/format'
+import { formatBytes, pluralize } from '../utils/format'
 
 export default function VideoCard({ video }: { video: Video }) {
   const date = new Date(video.created_at).toLocaleDateString()
@@ -17,7 +17,10 @@ export default function VideoCard({ video }: { video: Video }) {
         <p className="video-card-meta">
           {video.owner.email} · {date}
         </p>
-        <p className="video-card-size">{formatBytes(video.size_bytes)}</p>
+        <p className="video-card-size">
+          {video.views !== undefined ? `${pluralize(video.views, 'view')} · ` : ''}
+          {formatBytes(video.size_bytes)}
+        </p>
       </div>
     </Link>
   )
