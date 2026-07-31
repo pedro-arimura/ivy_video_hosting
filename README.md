@@ -94,13 +94,17 @@ VITE_API_URL=http://localhost:8000
 ## Deploy for free in production
 
 The stack is designed around free tiers: **Vercel** (front-end),
-**Render** (API), **Neon** (PostgreSQL), **Cloudflare R2** or **Backblaze B2**
+**Render** (API), **Supabase** (PostgreSQL), **Cloudflare R2** or **Backblaze B2**
 (video files).
 
-### 1. Database — Neon (free)
+### 1. Database — Supabase (free)
 
-1. Create a project at [neon.tech](https://neon.tech) (or any Postgres host).
-2. Copy the pooled connection string, e.g. `postgresql://user:pass@host/db?...`.
+1. Create a project at [supabase.com](https://supabase.com) (free tier, US East).
+2. In **Project Settings → Database → Connection string**, copy the
+   **transaction pooler** string (host uses port `6543`), e.g.
+   `postgresql://postgres.ivyabc:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres`.
+   Use the pooler so Render's waking/sleeping instances don't exhaust
+   connections.
 
 ### 2. Video storage — Cloudflare R2 (free tier) or Backblaze B2
 
@@ -120,7 +124,7 @@ testing but not durable on Render free tier.
 2. In [render.com](https://render.com) → **New → Blueprint**, pick the repo.
    It reads `render.yaml` (root dir `back-end`).
 3. After creation, in the service → **Environment** set:
-   - `DATABASE_URL` — your Neon connection string
+   - `DATABASE_URL` — your Supabase transaction pooler connection string
    - `S3_BUCKET`, `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
      — your storage credentials
    - `CORS_ORIGINS` — your front-end URL (e.g. `https://ivyvideo.vercel.app`)
@@ -145,7 +149,7 @@ Sign up at `https://<your-app>.vercel.app/signup`, upload a video, and watch it.
 
 | Variable               | Default      | Description                                  |
 | ---------------------- | ------------ | -------------------------------------------- |
-| `DATABASE_URL`         | *(empty)*    | Postgres DSN; empty → SQLite local fallback  |
+| `DATABASE_URL`         | *(empty)*    | Postgres DSN (e.g. Supabase pooler); empty → SQLite fallback |
 | `JWT_SECRET`           | dev secret   | Secret used to sign tokens                   |
 | `JWT_EXPIRES_MINUTES`  | `10080`      | Token lifetime (7 days)                      |
 | `DATA_DIR`             | `./data`     | Where SQLite + local files are stored        |
