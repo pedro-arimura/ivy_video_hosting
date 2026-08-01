@@ -73,7 +73,7 @@ export default function Signup() {
                 onClick={() => setShowPassword((s) => !s)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                <Icon icon={showPassword ? eyeOff : eye} size={18} />
+                <Icon icon={showPassword ? eyeOff : eye} size={18} tag="i" />
               </button>
             </div>
             {error && <p className="error-text">{error}</p>}
