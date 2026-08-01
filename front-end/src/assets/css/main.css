@@ -262,6 +262,14 @@ textarea.formInput {
     position: relative;
 }
 
+.video-card-thumb-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .video-card-body {
     padding: 12px 14px;
 }

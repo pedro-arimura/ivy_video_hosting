@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from pathlib import Path
@@ -9,11 +10,12 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Request,
     Response,
     UploadFile,
 )
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from auth import get_current_user, get_optional_user, new_id
 from database import execute, fetchall, fetchone, to_iso
@@ -22,6 +24,48 @@ from storage import get_storage
 router = APIRouter()
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "500"))
+MAX_COVER_MB = int(os.getenv("MAX_COVER_MB", "5"))
+ALLOWED_COVER_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
+
+DEFAULT_SETTINGS = {
+    "autoplay": False,
+    "cover_action": "restart",
+    "cover_image_url": "",
+    "cover_play_color": "#ffffff",
+    "cover_play_background": "#1a1a1a",
+    "playback_rates": [0.5, 0.75, 1, 1.25, 1.5, 2],
+    "default_playback_rate": 1,
+}
+
+# Stored internally but not exposed through the public API.
+_INTERNAL_SETTING_KEYS = {"cover_storage_key", "cover_content_type"}
+
+
+def _load_settings(row: dict) -> dict:
+    raw = (row.get("settings") or "").strip()
+    if not raw:
+        return dict(DEFAULT_SETTINGS)
+    try:
+        stored = json.loads(raw)
+    except (ValueError, TypeError):
+        return dict(DEFAULT_SETTINGS)
+    if not isinstance(stored, dict):
+        return dict(DEFAULT_SETTINGS)
+    merged = dict(DEFAULT_SETTINGS)
+    merged.update(stored)
+    return merged
+
+
+def _save_settings(video_id: str, settings: dict) -> None:
+    execute(
+        "UPDATE videos SET settings = ? WHERE id = ?",
+        (json.dumps(settings), video_id),
+    )
 
 
 class EventRequest(BaseModel):
@@ -31,12 +75,25 @@ class EventRequest(BaseModel):
     visitor_id: str | None = None
 
 
+class UpdateSettingsRequest(BaseModel):
+    autoplay: bool | None = None
+    cover_action: str | None = None
+    cover_image_url: str | None = None
+    cover_play_color: str | None = None
+    cover_play_background: str | None = None
+    playback_rates: list[float] | None = None
+    default_playback_rate: float | None = None
+
+
 def _sanitize_filename(name: str) -> str:
     name = Path(name or "video").name
     return re.sub(r"[^A-Za-z0-9._-]", "_", name) or "video.mp4"
 
 
 def _serialize_video(row: dict) -> dict:
+    settings = _load_settings(row)
+    for key in _INTERNAL_SETTING_KEYS:
+        settings.pop(key, None)
     return {
         "id": row["id"],
         "title": row["title"],
@@ -49,6 +106,7 @@ def _serialize_video(row: dict) -> dict:
             "id": row["owner_id"],
             "email": row.get("owner_email") or "",
         },
+        "settings": settings,
     }
 
 
@@ -156,6 +214,145 @@ def get_video(video_id: str):
     return video
 
 
+def _require_owner(video_id: str, user: dict) -> dict:
+    row = fetchone("SELECT owner_id FROM videos WHERE id = ?", (video_id,))
+    if not row:
+        raise HTTPException(status_code=404, detail="Video not found.")
+    if row["owner_id"] != user["id"]:
+        raise HTTPException(
+            status_code=403, detail="You can only modify your own videos."
+        )
+    return row
+
+
+@router.patch("/{video_id}")
+def update_video_settings(
+    video_id: str,
+    body: UpdateSettingsRequest,
+    user: dict = Depends(get_current_user),
+):
+    _require_owner(video_id, user)
+    row = fetchone("SELECT settings FROM videos WHERE id = ?", (video_id,))
+    settings = _load_settings(row)
+
+    changes = body.model_dump(exclude_unset=True)
+
+    if "autoplay" in changes and changes["autoplay"] is not None:
+        settings["autoplay"] = bool(changes["autoplay"])
+
+    if "cover_action" in changes and changes["cover_action"] is not None:
+        action = changes["cover_action"].strip().lower()
+        if action not in {"restart", "resume"}:
+            raise HTTPException(
+                status_code=422, detail="cover_action must be 'restart' or 'resume'."
+            )
+        settings["cover_action"] = action
+
+    if "cover_play_color" in changes and changes["cover_play_color"] is not None:
+        settings["cover_play_color"] = changes["cover_play_color"].strip() or DEFAULT_SETTINGS["cover_play_color"]
+
+    if "cover_play_background" in changes and changes["cover_play_background"] is not None:
+        settings["cover_play_background"] = (
+            changes["cover_play_background"].strip()
+            or DEFAULT_SETTINGS["cover_play_background"]
+        )
+
+    if "cover_image_url" in changes:
+        value = (changes["cover_image_url"] or "").strip()
+        settings["cover_image_url"] = value
+        if not value:
+            settings["cover_storage_key"] = ""
+            settings["cover_content_type"] = ""
+
+    if "playback_rates" in changes and changes["playback_rates"]:
+        rates = changes["playback_rates"]
+        if not all(
+            isinstance(r, (int, float)) and 0.1 <= r <= 4 for r in rates
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="playback_rates must be numbers between 0.1 and 4.",
+            )
+        settings["playback_rates"] = sorted(set(round(float(r), 2) for r in rates))
+
+    if "default_playback_rate" in changes and changes["default_playback_rate"] is not None:
+        rate = changes["default_playback_rate"]
+        if not (0.1 <= rate <= 4):
+            raise HTTPException(
+                status_code=422,
+                detail="default_playback_rate must be between 0.1 and 4.",
+            )
+        settings["default_playback_rate"] = round(float(rate), 2)
+
+    _save_settings(video_id, settings)
+    return _serialize_video(_get_video_row(video_id))
+
+
+@router.post("/{video_id}/cover", status_code=201)
+def upload_cover(
+    video_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    _require_owner(video_id, user)
+
+    content_type = (file.content_type or "").strip().lower()
+    ext = ALLOWED_COVER_TYPES.get(content_type)
+    if not ext:
+        raise HTTPException(
+            status_code=422,
+            detail="Cover must be a JPEG, PNG, WebP or GIF image.",
+        )
+
+    size = file.size
+    if size is None:
+        file.file.seek(0, 2)
+        size = file.file.tell()
+        file.file.seek(0)
+    if size > MAX_COVER_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=413, detail=f"Cover exceeds the {MAX_COVER_MB} MB limit."
+        )
+
+    key = f"covers/{video_id}/cover.{ext}"
+    try:
+        get_storage().save(key, file.file, content_type)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail="Failed to store the cover image."
+        ) from exc
+
+    row = fetchone("SELECT settings FROM videos WHERE id = ?", (video_id,))
+    settings = _load_settings(row)
+    settings["cover_image_url"] = f"/videos/{video_id}/cover"
+    settings["cover_storage_key"] = key
+    settings["cover_content_type"] = content_type
+    _save_settings(video_id, settings)
+
+    return _serialize_video(_get_video_row(video_id))
+
+
+@router.get("/{video_id}/cover")
+def get_cover(video_id: str):
+    row = _get_video_row(video_id)
+    settings = _load_settings(row)
+    key = settings.get("cover_storage_key") or ""
+    content_type = settings.get("cover_content_type") or "image/png"
+    if not key:
+        raise HTTPException(status_code=404, detail="No cover image.")
+    result = get_storage().stream(key, None)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Cover image not found.")
+    headers = dict(result["headers"])
+    headers["Content-Type"] = content_type
+    return StreamingResponse(
+        result["body"],
+        status_code=result["status"],
+        headers=headers,
+        media_type=content_type,
+    )
+
+
 @router.get("/{video_id}/stream")
 def stream_video(
     video_id: str,
@@ -176,8 +373,22 @@ def stream_video(
 
 
 @router.post("/{video_id}/events", status_code=201)
-def record_event(video_id: str, body: EventRequest):
-    """Public endpoint used by the embed player to meter playback events."""
+async def record_event(video_id: str, request: Request):
+    """Public endpoint used by the embed player to meter playback events.
+
+    The body is parsed as JSON regardless of the Content-Type so the embed
+    player can send analytics via sendBeacon (text/plain, which cannot
+    preflight cross-origin) as well as regular fetch (application/json).
+    """
+    raw = await request.body()
+    if len(raw) > 4096:
+        raise HTTPException(status_code=413, detail="Event payload too large.")
+    try:
+        body = EventRequest.model_validate(json.loads(raw or b"{}"))
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422, detail="Request body must be valid JSON."
+        )
     event_type = (body.type or "").strip().lower()[:32]
     if not event_type:
         raise HTTPException(status_code=422, detail="Event type is required.")

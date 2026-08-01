@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { Video, VideoStats } from '../types'
+import type { Video, VideoSettings, VideoStats } from '../types'
 
 export function listVideos(): Promise<{ videos: Video[] }> {
   return api<{ videos: Video[] }>('/videos')
@@ -36,4 +36,27 @@ export function uploadVideo(
 
 export function deleteVideo(id: string): Promise<void> {
   return api<void>(`/videos/${id}`, { method: 'DELETE' })
+}
+
+export type SettingsPatch = Partial<Omit<VideoSettings, 'cover_image_url'>> & {
+  cover_image_url?: string | null
+}
+
+export function updateVideoSettings(
+  id: string,
+  settings: SettingsPatch,
+): Promise<Video> {
+  return api<Video>(`/videos/${id}`, {
+    method: 'PATCH',
+    data: settings,
+  })
+}
+
+export function uploadVideoCover(id: string, file: File): Promise<Video> {
+  const form = new FormData()
+  form.append('file', file)
+  return api<Video>(`/videos/${id}/cover`, {
+    method: 'POST',
+    data: form,
+  })
 }

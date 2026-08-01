@@ -3,6 +3,16 @@ export interface User {
   email: string;
 }
 
+export interface VideoSettings {
+  autoplay: boolean
+  cover_action: 'restart' | 'resume'
+  cover_image_url: string
+  cover_play_color: string
+  cover_play_background: string
+  playback_rates: number[]
+  default_playback_rate: number
+}
+
 export interface Video {
   id: string
   title: string
@@ -14,6 +24,7 @@ export interface Video {
   owner: User
   is_mine?: boolean
   views?: number
+  settings?: VideoSettings
 }
 
 export interface VideoStats {

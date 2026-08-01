@@ -23,6 +23,8 @@ library → watch it in a streaming player**.
 - Protected upload route
 - Video library (public feed, newest first)
 - Watch page with a streaming player (HTTP Range requests → seek works)
+- Customizable embed player: cover image + play button (PandaVideo style),
+  autoplay, playback speeds, and cover-click behavior, all configured per video
 - Delete your own videos
 - Streaming works with a video that has `faststart` (moov atom first)
 
@@ -58,6 +60,9 @@ library → watch it in a streaming player**.
 | GET    | `/videos/{id}/stream` | Video bytes with Range support       |
 | POST   | `/videos/{id}/events` | Record a playback event (embed player) |
 | GET    | `/videos/{id}/stats`  | Analytics for the owner (auth)       |
+| PATCH  | `/videos/{id}`        | Update own video's player settings (auth) |
+| POST   | `/videos/{id}/cover`  | Upload own video's cover image (auth) |
+| GET    | `/videos/{id}/cover`  | Cover image (public)                 |
 | DELETE | `/videos/{id}`        | Delete own video (auth)              |
 | GET    | `/embed/player.js`    | Embeddable player script             |
 | GET    | `/health`             | Health check                         |
@@ -86,6 +91,39 @@ The script renders an HTML5 player and meters analytics:
 Events are sent to `POST /videos/{id}/events` via `navigator.sendBeacon` (so
 they survive page unloads) with a visitor id stored in `localStorage`. The
 owner sees the analytics panel and the embed code on the video's watch page.
+
+## Embed player customization
+
+Each video has per-video settings that the embed player reads when it loads.
+The owner edits them on the video's watch page (or via `PATCH /videos/{id}`).
+
+| Setting                  | Default                       | Description                              |
+| ------------------------ | ----------------------------- | ---------------------------------------- |
+| `autoplay`               | `false`                       | Start playing muted on load (browsers block sound autoplay) |
+| `cover_action`           | `restart`                     | What clicking the cover does: `restart` (replay with sound) or `resume` (unmute from current position) |
+| `cover_image_url`        | *(none)*                      | Cover/thumbnail shown over the player; an uploaded cover is served from `/videos/{id}/cover` |
+| `cover_play_color`       | `#ffffff`                     | Icon color of the circular play button   |
+| `cover_play_background`  | `#1a1a1a`                     | Background color of the play button      |
+| `playback_rates`         | `0.5,0.75,1,1.25,1.5,2`       | Speeds available on the playbar button (0.1–4) |
+| `default_playback_rate`  | `1`                           | Starting playback speed                  |
+
+Per-embed overrides: any `data-*` attribute on the `<div data-ivy-video>` wins
+over the video's settings — `data-autoplay`, `data-cover-action`,
+`data-cover` (URL), and `data-speed`:
+
+```html
+<div
+  data-ivy-video="VIDEO_UUID"
+  data-autoplay="true"
+  data-cover-action="resume"
+  data-cover="https://example.com/thumb.jpg"
+  data-speed="2"
+></div>
+<script src="https://YOUR_API_URL/embed/player.js" async></script>
+```
+
+Autoplay always starts muted (browser policy); clicking the cover is the only
+way to start with sound, and its behavior is controlled by `cover_action`.
 
 ## Run locally
 
@@ -189,3 +227,4 @@ Sign up at `https://<your-app>.vercel.app/signup`, upload a video, and watch it.
 | `S3_REGION`            | `auto`       | Region (R2/B2 ignore it)                     |
 | `CORS_ORIGINS`         | `*`          | Comma-separated allowed origins              |
 | `MAX_UPLOAD_MB`        | `500`        | Max upload size                              |
+| `MAX_COVER_MB`         | `5`          | Max cover image size                         |

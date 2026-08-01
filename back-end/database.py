@@ -105,6 +105,25 @@ def init_db():
                 cur.execute(_adapt(SCHEMA))
         else:
             conn.executescript(SCHEMA)
+        _migrate(conn)
+
+
+def _migrate(conn):
+    """Apply column additions that cannot live in CREATE TABLE IF NOT EXISTS."""
+    if settings.is_postgres:
+        with conn.cursor() as cur:
+            cur.execute(
+                _adapt(
+                    "ALTER TABLE videos ADD COLUMN IF NOT EXISTS "
+                    "settings TEXT NOT NULL DEFAULT '{}'"
+                )
+            )
+    else:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(videos)")}
+        if "settings" not in cols:
+            conn.execute(
+                "ALTER TABLE videos ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'"
+            )
 
 
 def to_iso(value):
